@@ -1,5 +1,6 @@
 package com.vvechirko.listcontentholder
 
+import android.animation.Animator
 import android.animation.ValueAnimator
 import android.annotation.TargetApi
 import android.content.Context
@@ -7,8 +8,9 @@ import android.graphics.*
 import android.graphics.drawable.Animatable2
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -21,27 +23,41 @@ import androidx.core.view.forEach
 @TargetApi(Build.VERSION_CODES.M)
 class PlaceHolderDrawable : Drawable, Animatable2 {
 
-    val semiWhite = ColorUtils.setAlphaComponent(Color.WHITE, 102)
-    var state: DrawableState
-    val gradientPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    val gradientDrawable = GradientDrawable(
-        GradientDrawable.Orientation.LEFT_RIGHT,
-        intArrayOf(semiWhite, Color.TRANSPARENT, semiWhite, Color.TRANSPARENT)
-    )
+    private val listItem = Color.parseColor("#AAAAAAAA")
+    private val gradientCenter = ColorUtils.setAlphaComponent(Color.WHITE, 102)
+    private val gradientEdge = Color.TRANSPARENT
+
+    private var drawableState: DrawableState
+
+    private val gradientPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val shaderColors = intArrayOf(gradientEdge, gradientCenter, gradientEdge)
+    private val shaderPositions = floatArrayOf(0f, 0.5f, 1f)
+
+    var autoStart = true
+    private val animator: ValueAnimator = ValueAnimator.ofFloat(-1f, 2f).apply {
+        duration = 1500
+        interpolator = LinearInterpolator()
+        repeatCount = ValueAnimator.INFINITE
+        addUpdateListener(UpdateListener())
+        addListener(AnimatorListener())
+    }
 
     private constructor(state: DrawableState) {
-        this.state = state
-        initGradient()
+        drawableState = state
+
+        if (autoStart) {
+            start()
+        }
     }
 
     constructor(context: Context, resId: Int) {
         val view = LayoutInflater.from(context).inflate(resId, FrameLayout(context), false)
-        // Bad solution
+        //TODO: Bad solution
         val widthPixels = context.resources.displayMetrics.widthPixels
         val heightPixels = context.resources.displayMetrics.heightPixels
 
         (view as ViewGroup).forEach {
-            it.background = ColorDrawable(Color.GRAY)
+            it.background = ColorDrawable(listItem)
         }
 
         val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPixels, View.MeasureSpec.EXACTLY)
@@ -64,65 +80,31 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
             "myLogs", "widthPixels $widthPixels, heightPixels $heightPixels\n" +
                     "measuredWidth ${view.measuredWidth}, measuredHeight ${view.measuredHeight}"
         )
-        state = DrawableState(view)
-        initGradient()
+        drawableState = DrawableState(view)
+
+        if (autoStart) {
+            start()
+        }
     }
 
-    var rect = Rect()
-    var gradientOffset = 0f
-
-    fun initGradient() {
-        val width = intrinsicWidth
-        val height = intrinsicHeight
-        rect = Rect(0, 0, 3 * width, height)
-
-        // LinearGradient Shader
-
-        gradientPaint.style = Paint.Style.FILL
-        val colors = intArrayOf(semiWhite, Color.TRANSPARENT, semiWhite, Color.TRANSPARENT)
+    private fun updateShader(v: Float) {
+        val left = intrinsicWidth * v
+        val right = left + intrinsicWidth
         gradientPaint.shader = LinearGradient(
-            0f, 0f, width * 3f, 0f, colors, null, Shader.TileMode.REPEAT
+            left, 0f, right, 0f, shaderColors, shaderPositions, Shader.TileMode.CLAMP
         )
-        ValueAnimator.ofInt(0, width * 2).apply {
-            interpolator = LinearInterpolator()
-            duration = 1500
-            repeatMode = ValueAnimator.RESTART
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener {
-                gradientOffset = -2f * width + (it.animatedValue as Int).toFloat()
-                invalidateSelf()
-            }
-        }.start()
-
-        // GradientDrawable
-
-//        gradientDrawable.setBounds(0, 0, width, height)
-//
-//        ValueAnimator.ofInt(0, 2 * width).apply {
-//            interpolator = LinearInterpolator()
-//            duration = 1500
-//            repeatMode = ValueAnimator.RESTART
-//            repeatCount = ValueAnimator.INFINITE
-//            addUpdateListener {
-//                val v = it.animatedValue as Int
-//                gradientDrawable.setBounds(-2 * width + v, 0, width + v, height)
-//                invalidateSelf()
-//            }
-//        }.start()
+        invalidateSelf()
     }
 
     override fun draw(canvas: Canvas) {
-        state.view.draw(canvas)
-//        gradientDrawable.draw(canvas)
-
-        canvas.save()
-        canvas.translate(gradientOffset, 0f)
-        canvas.drawRect(rect, gradientPaint)
-        canvas.restore()
+        drawableState.view.draw(canvas)
+        canvas.drawRect(
+            0f, 0f, intrinsicWidth.toFloat(), intrinsicHeight.toFloat(), gradientPaint
+        )
     }
 
     override fun setAlpha(alpha: Int) {
-
+        // Not supported
     }
 
     override fun getOpacity(): Int {
@@ -130,49 +112,89 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
     }
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
-
+        // Not supported
     }
 
     override fun getIntrinsicWidth(): Int {
-        return state.view.width
+        return drawableState.view.width
     }
 
     override fun getIntrinsicHeight(): Int {
-        return state.view.height
+        return drawableState.view.height
     }
 
     override fun getConstantState(): ConstantState {
-        return state
+        return drawableState
     }
 
     override fun getChangingConfigurations(): Int {
-        return super.getChangingConfigurations() or state.changingConfigurations
+        return super.getChangingConfigurations() or drawableState.changingConfigurations
     }
 
-    // Animatable2 overrides
+    // Animator listeners
 
+    private inner class UpdateListener : ValueAnimator.AnimatorUpdateListener {
+        override fun onAnimationUpdate(it: ValueAnimator) {
+            updateShader(it.animatedValue as Float)
+        }
+    }
+
+    private inner class AnimatorListener : Animator.AnimatorListener {
+        private val handler = Handler(Looper.getMainLooper())
+
+        override fun onAnimationRepeat(animation: Animator?) {
+
+        }
+
+        override fun onAnimationEnd(animation: Animator?) {
+            handler.post {
+                animationCallbacks.forEach {
+                    it.onAnimationEnd(this@PlaceHolderDrawable)
+                }
+            }
+        }
+
+        override fun onAnimationCancel(animation: Animator?) {
+        }
+
+        override fun onAnimationStart(animation: Animator?) {
+            handler.post {
+                animationCallbacks.forEach {
+                    it.onAnimationEnd(this@PlaceHolderDrawable)
+                }
+            }
+        }
+    }
+
+    // Animatable overrides
     override fun isRunning(): Boolean {
-        return true
-    }
-
-    override fun registerAnimationCallback(callback: Animatable2.AnimationCallback) {
-
+        return animator.isRunning
     }
 
     override fun start() {
-
+//        updateShader(-1f)
+        animator.start()
     }
 
     override fun stop() {
-
+        animator.pause()
     }
 
-    override fun clearAnimationCallbacks() {
+    // Animatable2 overrides
+    private val animationCallbacks = mutableListOf<Animatable2.AnimationCallback>()
 
+    override fun registerAnimationCallback(callback: Animatable2.AnimationCallback) {
+        if (!animationCallbacks.contains(callback)) {
+            animationCallbacks.add(callback)
+        }
     }
 
     override fun unregisterAnimationCallback(callback: Animatable2.AnimationCallback): Boolean {
-        return false
+        return animationCallbacks.remove(callback)
+    }
+
+    override fun clearAnimationCallbacks() {
+        animationCallbacks.clear()
     }
 
     class DrawableState(val view: View) : ConstantState() {
