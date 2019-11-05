@@ -40,7 +40,7 @@ class MainActivity : AppCompatActivity() {
 
 class Adapter(context: Context) : RecyclerView.Adapter<Holder>() {
 
-    val placeHolderDrawable = PlaceHolderDrawable(context, R.layout.item_person)
+    val placeHolder = ContentPlaceHolder(context, R.layout.item_person)
 
     var data: List<String> = emptyList()
         set(value) {
@@ -64,7 +64,7 @@ class Adapter(context: Context) : RecyclerView.Adapter<Holder>() {
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         if (loading) {
-            holder.itemView.background = placeHolderDrawable.mutate().constantState!!.newDrawable()
+            holder.itemView.background = placeHolder.newDrawable()
         } else {
             holder.itemView.background = null
         }

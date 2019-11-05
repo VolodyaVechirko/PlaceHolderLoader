@@ -3,27 +3,18 @@ package com.vvechirko.listcontentholder
 import android.animation.Animator
 import android.animation.ValueAnimator
 import android.annotation.TargetApi
-import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Animatable2
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
-import android.widget.FrameLayout
 import androidx.core.graphics.ColorUtils
-import androidx.core.view.forEach
 
 @TargetApi(Build.VERSION_CODES.M)
 class PlaceHolderDrawable : Drawable, Animatable2 {
 
-    private val listItem = Color.parseColor("#AAAAAAAA")
     private val gradientCenter = ColorUtils.setAlphaComponent(Color.WHITE, 102)
     private val gradientEdge = Color.TRANSPARENT
 
@@ -42,45 +33,10 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
         addListener(AnimatorListener())
     }
 
+    constructor(viewBitmap: Bitmap) : this(DrawableState(viewBitmap))
+
     private constructor(state: DrawableState) {
         drawableState = state
-
-        if (autoStart) {
-            start()
-        }
-    }
-
-    constructor(context: Context, resId: Int) {
-        val view = LayoutInflater.from(context).inflate(resId, FrameLayout(context), false)
-        //TODO: Bad solution
-        val widthPixels = context.resources.displayMetrics.widthPixels
-        val heightPixels = context.resources.displayMetrics.heightPixels
-
-        (view as ViewGroup).forEach {
-            it.background = ColorDrawable(listItem)
-        }
-
-        val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPixels, View.MeasureSpec.EXACTLY)
-        val heightSpec = View.MeasureSpec.makeMeasureSpec(heightPixels, View.MeasureSpec.AT_MOST)
-        val lp = view.layoutParams as ViewGroup.LayoutParams
-        var horizontalPadding = 0
-        var verticalPadding = 0
-
-        if (lp is ViewGroup.MarginLayoutParams) {
-            horizontalPadding = lp.leftMargin + lp.rightMargin
-            verticalPadding = lp.topMargin + lp.bottomMargin
-        }
-
-        view.measure(
-            ViewGroup.getChildMeasureSpec(widthSpec, horizontalPadding, lp.width),
-            ViewGroup.getChildMeasureSpec(heightSpec, verticalPadding, lp.height)
-        )
-        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
-        Log.d(
-            "myLogs", "widthPixels $widthPixels, heightPixels $heightPixels\n" +
-                    "measuredWidth ${view.measuredWidth}, measuredHeight ${view.measuredHeight}"
-        )
-        drawableState = DrawableState(view)
 
         if (autoStart) {
             start()
@@ -97,7 +53,7 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
     }
 
     override fun draw(canvas: Canvas) {
-        drawableState.view.draw(canvas)
+        canvas.drawBitmap(drawableState.viewBitmap, 0f, 0f, null)
         canvas.drawRect(
             0f, 0f, intrinsicWidth.toFloat(), intrinsicHeight.toFloat(), gradientPaint
         )
@@ -116,11 +72,11 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
     }
 
     override fun getIntrinsicWidth(): Int {
-        return drawableState.view.width
+        return drawableState.viewBitmap.width
     }
 
     override fun getIntrinsicHeight(): Int {
-        return drawableState.view.height
+        return drawableState.viewBitmap.height
     }
 
     override fun getConstantState(): ConstantState {
@@ -172,7 +128,6 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
     }
 
     override fun start() {
-//        updateShader(-1f)
         animator.start()
     }
 
@@ -197,7 +152,7 @@ class PlaceHolderDrawable : Drawable, Animatable2 {
         animationCallbacks.clear()
     }
 
-    class DrawableState(val view: View) : ConstantState() {
+    class DrawableState(val viewBitmap: Bitmap) : ConstantState() {
 
         override fun newDrawable(): Drawable {
             return PlaceHolderDrawable(this)
