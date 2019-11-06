@@ -7,7 +7,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.RecyclerView
 
@@ -27,6 +26,7 @@ class MainActivity : AppCompatActivity() {
 
         val adapter = Adapter(this)
         rv.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
+        rv.addItemDecoration(PlaceHolderDecorator())
         rv.adapter = adapter
 
         // simulate data delay
@@ -63,11 +63,11 @@ class Adapter(context: Context) : RecyclerView.Adapter<Holder>() {
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        if (loading) {
-            holder.itemView.background = placeHolder.newDrawable()
-        } else {
-            holder.itemView.background = null
-        }
+//        if (loading) {
+//            holder.itemView.background = placeHolder.newDrawable()
+//        } else {
+//            holder.itemView.background = null
+//        }
     }
 
     override fun getItemCount(): Int {
